@@ -7,6 +7,7 @@ def calculate_arrears_rate(df):
     arrears_rate = len(df[df['Arrears Status'] == 'Active']) / len(df) * 100
     return f"{arrears_rate:.2f}%"
 
+
 def app(df, st):
     # Helper Functions
     def plot_pies(st=""):
