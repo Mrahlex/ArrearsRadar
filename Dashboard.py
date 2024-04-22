@@ -1,3 +1,4 @@
+
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -6,7 +7,6 @@ from scipy import stats
 def calculate_arrears_rate(df):
     arrears_rate = len(df[df['Arrears Status'] == 'Active']) / len(df) * 100
     return f"{arrears_rate:.2f}%"
-
 
 def app(df, st):
     # Helper Functions
@@ -45,29 +45,56 @@ def app(df, st):
     if btn:
         st.dataframe(df.iloc[:, :-2].sample(5))
 
-    # Analysis Selection
-    st.header("Analysis Selection")
-    selected_analysis = []
-    if st.checkbox("Univariate Analysis"):
-        selected_analysis.append("Univariate")
-    if st.checkbox("Bivariate Analysis"):
-        selected_analysis.append("Bivariate")
+    # Bar Plots
+    st.header("Counts and Percentages")
+    c1, c2 = st.columns(2)
+    selected = c1.selectbox('Select', ['Employment Status', 'Income Level', 'Socio-economic Background',
+                                       'Highest Education', 'Location', 'Property Type', 'Property Size',
+                                       'Num Amenities', 'Rental Price', 'Property Age', 'Property Condition',
+                                       'Tenancy by Entirety', 'Benefit Cap', 'Satisfaction', 'Income to Debt Ratio',
+                                       'Timeliness Score', 'Credit Score', 'Household Size', 'Presence of Guarantor',
+                                       'Rental Price to Income Ratio'])
+    colored = c2.selectbox('Filter By', ['Arrears Status', 'Satisfaction', 'Income to Debt Ratio', 'Credit Score'])
 
-    # Perform Selected Analysis
-    if "Univariate" in selected_analysis:
-        st.header("Univariate Analysis")
-        for column in df.select_dtypes(include=['int64', 'float64']).columns:
-            fig = px.histogram(df, x=column, title=f'{column} Distribution')
-            st.plotly_chart(fig)
+    subData = df.groupby([selected, colored])["Tenant Age"].count().reset_index(name='Counts')
+    fig = px.bar(subData, y="Counts", x=selected, color=colored, template='plotly',
+                 title=f"{selected} with {colored}")
+    fig.update_layout(xaxis_title=selected, yaxis_title='Counts')
+    st.plotly_chart(fig, use_container_width=True)
 
-    if "Bivariate" in selected_analysis:
-        st.header("Bivariate Analysis")
-        for numeric_column in df.select_dtypes(include=['int64', 'float64']).columns:
-            for categorical_column in df.select_dtypes(include=['object']).columns:
-                if numeric_column != 'Arrears Status' and categorical_column != 'Arrears Status':
-                    fig = px.box(df, x=categorical_column, y=numeric_column, color='Arrears Status',
-                                 title=f'{numeric_column} vs {categorical_column}')
-                    st.plotly_chart(fig)
+    # Box Plots
+    st.header("Distributions by different aspects")
+    cc1, cc2, cc3 = st.columns(3)
 
+    Numerical = cc1.selectbox('Select', ['Tenant Age', 'Property Size', 'Rental Price', 'Property Age'])
+    Category = cc2.selectbox('Filter By', ['Arrears Status', 'JobSatisfaction', 'WorkLifeBalance'])
+    By = cc3.selectbox('Select', [None, 'Arrears Status'])
 
-    
+    fig = px.box(df, x=Category, y=Numerical, color=By, template='plotly',
+                 title=f"{Numerical} distribution by different {Category}s")
+    fig.update_layout(xaxis_title=Category, yaxis_title=Numerical)
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Pie Plots
+    st.header("Socio-economic Background and arrears status rates")
+    sel = st.selectbox('Choose', ['Socio-economic Background', 'Arrears Status'])
+
+    fig = plot_pies(sel)
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Scatter with Correlation
+    st.header("Correlation Between numerical features")
+    ccc1, ccc2, ccc3, ccc4 = st.columns(4)
+
+    Numerical1 = ccc1.selectbox('Between', options=['Tenant Age', 'Rental Price', 'Property Age'])
+    Numerical2 = ccc2.selectbox('And', options=['Rental Price', 'Tenant Age', 'Property Age'])
+    By2 = ccc3.selectbox('Filtered By', options=[None, 'Arrears Status', 'Tenancy by Entirety'])
+
+    Corr = round(stats.pearsonr(df[Numerical1], df[Numerical2]).statistic, 4)
+    ccc4.metric("Correlation", Corr)
+
+    fig = px.scatter(df, x=Numerical1, y=Numerical2, color=By2, trendline='ols',
+                     opacity=0.5, template='plotly',
+                     title=f'Correlation between {Numerical1} and {Numerical2}')
+    fig.update_layout(xaxis_title=Numerical1, yaxis_title=Numerical2)
+    st.plotly_chart(fig, use_container_width=True)
